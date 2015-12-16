@@ -9,13 +9,23 @@ from django.shortcuts import render, resolve_url
 from .decorators import anonymous_required
 
 
+def get_arg(request, key):
+    '''
+    Helper function to emulate request.REQUEST
+    '''
+    if request.method == 'POST':
+        return request.POST.get(key)
+    else:
+        return request.GET.get(key)
+
+
 def get_return_address(request):
-    return request.REQUEST.get(auth.REDIRECT_FIELD_NAME) or resolve_url(settings.LOGIN_REDIRECT_URL)
+    return get_arg(request, auth.REDIRECT_FIELD_NAME) or resolve_url(settings.LOGIN_REDIRECT_URL)
 
 
 @anonymous_required
 def login(request, *args, **kwargs):
-    shop = request.REQUEST.get('shop')
+    shop = get_arg(request, 'shop')
 
     # If the shop parameter has already been provided, attempt to authenticate immediately.
     if shop:
@@ -28,7 +38,7 @@ def login(request, *args, **kwargs):
 
 @anonymous_required
 def authenticate(request, *args, **kwargs):
-    shop = request.REQUEST.get('shop')
+    shop = get_arg(request, 'shop')
 
     if settings.SHOPIFY_APP_DEV_MODE:
         return finalize(request, token='00000000000000000000000000000000', *args, **kwargs)
@@ -53,11 +63,11 @@ def authenticate(request, *args, **kwargs):
 
 @anonymous_required
 def finalize(request, *args, **kwargs):
-    shop = request.REQUEST.get('shop')
+    shop = get_arg(request, 'shop')
 
     try:
         shopify_session = shopify.Session(shop, token=kwargs.get('token'))
-        shopify_session.request_token(request.REQUEST)
+        shopify_session.request_token(request.GET if request.method == 'GET' else request.POST)
     except:
         login_url = reverse('shopify_auth.views.login')
         return HttpResponseRedirect(login_url)
